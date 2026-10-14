@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Safe Air Pedregal · Gráficos de dispersión</title>
+<style>
+:root{--bg:#071523;--panel:#10283e;--texto:#ffffff;--suave:#a9c4d6;--borde:#1e3a52}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--texto);font-family:Arial,sans-serif;padding:20px 14px}
+main{max-width:900px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--suave);font-size:13px;margin:0 0 16px}
+.barra{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;font-size:13px;color:var(--suave)}
+select{background:var(--panel);color:var(--texto);border:1px solid var(--borde);border-radius:8px;padding:6px 10px;font-size:13px}
+.punto{width:9px;height:9px;border-radius:50%;background:#94a3b8;display:inline-block}
+.punto.ok{background:#22c55e;box-shadow:0 0 8px #22c55e}.punto.err{background:#ef4444}
+section{background:var(--panel);border-radius:18px;padding:18px;margin-bottom:18px}
+h2{font-size:16px;margin:0 0 4px}
+section p{margin:0 0 12px;color:var(--suave);font-size:12px}
+.caja{position:relative;height:340px}
+.leyenda{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--suave);margin-top:10px}
+.leyenda i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+.aviso{color:#facc15;font-size:13px;margin:8px 0 0}
+footer{color:#94a3b8;font-size:11px;text-align:center;line-height:1.5}
+</style>
+</head>
+<body>
+<main>
+<h1>SAFE AIR PEDREGAL</h1>
+<p class="sub">Resultados del sensor ENS160 · datos de ThingSpeak</p>
+
+<div class="barra">
+  <span class="punto" id="punto"></span><span id="estado">Cargando datos...</span>
+  <label>Mostrar
+    <select id="n">
+      <option value="100">últimas 100 lecturas</option>
+      <option value="500" selected>últimas 500 lecturas</option>
+      <option value="2000">últimas 2000 lecturas</option>
+      <option value="8000">máximo (8000)</option>
+    </select>
+  </label>
+</div>
+
+<section>
+  <h2>COV vs eCO2</h2>
+  <p>Cada punto es una lectura. El color indica el AQI de ese momento.</p>
+  <div class="caja"><canvas id="g1"></canvas></div>
+  <div class="leyenda" id="ley"></div>
+  <div class="aviso" id="aviso" hidden>Aún no hay datos de COV y eCO2 en ThingSpeak. Actualiza el firmware para enviar field2 y field3.</div>
+</section>
+
+<section>
+  <h2>AQI en el tiempo</h2>
+  <p>Cada punto es una lectura del AQI (1 a 5) en su fecha y hora.</p>
+  <div class="caja"><canvas id="g2"></canvas></div>
+</section>
+
+<footer>AQI estimado de calidad del aire interior. No sustituye mediciones reglamentarias.</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+const CHANNEL_ID = 3399651;       // canal público
+const INTERVALO = 20000;
+const COLORES = {1:"#22c55e",2:"#facc15",3:"#fb923c",4:"#ef4444",5:"#a855f7"};
+const NOMBRES = {1:"1 Excelente",2:"2 Bueno",3:"3 Moderado",4:"4 Deficiente",5:"5 Insalubre"};
+
+const $ = id => document.getElementById(id);
+$("ley").innerHTML = Object.keys(COLORES).map(k =>
+  '<span><i style="background:'+COLORES[k]+'"></i>'+NOMBRES[k]+'</span>').join("");
+
+Chart.defaults.color = "#cbd5e1";
+Chart.defaults.borderColor = "#1e3a52";
+
+const fmtHora = v => new Date(v).toLocaleString("es-CO",
+  {timeZone:"America/Bogota",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+
+const g1 = new Chart($("g1"), {
+  type:"scatter",
+  data:{datasets:[{label:"Lecturas",data:[],pointRadius:4,pointHoverRadius:6,
+    pointBackgroundColor:[],pointBorderColor:"transparent"}]},
+  options:{maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{
+      label:c=>["COV: "+c.raw.x+" ppb","eCO2: "+c.raw.y+" ppm","AQI: "+c.raw.aqi,fmtHora(c.raw.t)]}}},
+    scales:{x:{title:{display:true,text:"COV (ppb)"},beginAtZero:true},
+            y:{title:{display:true,text:"eCO2 (ppm)"},beginAtZero:false}}}
+});
+
+const g2 = new Chart($("g2"), {
+  type:"scatter",
+  data:{datasets:[{label:"AQI",data:[],pointRadius:4,pointHoverRadius:6,
+    pointBackgroundColor:[],pointBorderColor:"transparent"}]},
+  options:{maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{
+      label:c=>["AQI: "+c.raw.y,fmtHora(c.raw.x)]}}},
+    scales:{x:{title:{display:true,text:"Fecha y hora (Colombia)"},
+               ticks:{maxTicksLimit:6,callback:v=>fmtHora(v)}},
+            y:{min:0.5,max:5.5,title:{display:true,text:"AQI"},
+               ticks:{stepSize:1,callback:v=>Number.isInteger(v)?v:""}}}}
+});
+
+function estado(ok, texto){
+  $("punto").className = "punto " + (ok ? "ok" : "err");
+  $("estado").textContent = texto;
+}
+
+let cargando = false;
+async function cargar(){
+  if(cargando) return;
+  cargando = true;
+  try{
+    const url = "https://api.thingspeak.com/channels/"+CHANNEL_ID+
+      "/feeds.json?results="+$("n").value;
+    const r = await fetch(url,{cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const j = await r.json();
+
+    const aqiPts = [], aqiCol = [], cvPts = [], cvCol = [];
+    (j.feeds||[]).forEach(f=>{
+      const aqi = Number(f.field1), t = new Date(f.created_at).getTime();
+      if(!(aqi>=1 && aqi<=5) || isNaN(t)) return;
+      const color = COLORES[aqi];
+      aqiPts.push({x:t,y:aqi}); aqiCol.push(color);
+      if(f.field2!==null && f.field3!==null && f.field2!=="" && f.field3!==""){
+        cvPts.push({x:Number(f.field2),y:Number(f.field3),aqi:aqi,t:t}); cvCol.push(color);
+      }
+    });
+
+    g2.data.datasets[0].data = aqiPts;
+    g2.data.datasets[0].pointBackgroundColor = aqiCol;
+    g2.update();
+    g1.data.datasets[0].data = cvPts;
+    g1.data.datasets[0].pointBackgroundColor = cvCol;
+    g1.update();
+    $("aviso").hidden = cvPts.length > 0;
+
+    const ultima = j.feeds && j.feeds.length ? fmtHora(new Date(j.feeds[j.feeds.length-1].created_at)) : "sin datos";
+    estado(true, aqiPts.length+" lecturas · última: "+ultima);
+  }catch(e){
+    console.error(e);
+    estado(false, "No fue posible cargar los datos de ThingSpeak.");
+  }finally{
+    cargando = false;
+  }
+}
+
+$("n").addEventListener("change", cargar);
+cargar();
+setInterval(cargar, INTERVALO);
+})();
+</script>
+</body>
+</html>
