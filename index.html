@@ -51,6 +51,18 @@ footer{color:#94a3b8;font-size:11px;text-align:center;line-height:1.5}
 </section>
 
 <section>
+  <h2>COV en el tiempo</h2>
+  <p>Cada punto es una lectura de COV (TVOC) en su fecha y hora.</p>
+  <div class="caja"><canvas id="g3"></canvas></div>
+</section>
+
+<section>
+  <h2>eCO2 en el tiempo</h2>
+  <p>Cada punto es una lectura de eCO2 en su fecha y hora.</p>
+  <div class="caja"><canvas id="g4"></canvas></div>
+</section>
+
+<section>
   <h2>AQI en el tiempo</h2>
   <p>Cada punto es una lectura del AQI (1 a 5) en su fecha y hora.</p>
   <div class="caja"><canvas id="g2"></canvas></div>
@@ -88,6 +100,30 @@ const g1 = new Chart($("g1"), {
             y:{title:{display:true,text:"eCO2 (ppm)"},beginAtZero:false}}}
 });
 
+const g3 = new Chart($("g3"), {
+  type:"scatter",
+  data:{datasets:[{label:"COV",data:[],pointRadius:4,pointHoverRadius:6,
+    pointBackgroundColor:[],pointBorderColor:"transparent"}]},
+  options:{maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{
+      label:c=>["COV: "+c.raw.y+" ppb",fmtHora(c.raw.x)]}}},
+    scales:{x:{title:{display:true,text:"Fecha y hora (Colombia)"},
+               ticks:{maxTicksLimit:6,callback:v=>fmtHora(v)}},
+            y:{title:{display:true,text:"COV (ppb)"},beginAtZero:true}}}
+});
+
+const g4 = new Chart($("g4"), {
+  type:"scatter",
+  data:{datasets:[{label:"eCO2",data:[],pointRadius:4,pointHoverRadius:6,
+    pointBackgroundColor:[],pointBorderColor:"transparent"}]},
+  options:{maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{
+      label:c=>["eCO2: "+c.raw.y+" ppm",fmtHora(c.raw.x)]}}},
+    scales:{x:{title:{display:true,text:"Fecha y hora (Colombia)"},
+               ticks:{maxTicksLimit:6,callback:v=>fmtHora(v)}},
+            y:{title:{display:true,text:"eCO2 (ppm)"},beginAtZero:false}}}
+});
+
 const g2 = new Chart($("g2"), {
   type:"scatter",
   data:{datasets:[{label:"AQI",data:[],pointRadius:4,pointHoverRadius:6,
@@ -117,14 +153,17 @@ async function cargar(){
     if(!r.ok) throw new Error("HTTP "+r.status);
     const j = await r.json();
 
-    const aqiPts = [], aqiCol = [], cvPts = [], cvCol = [];
+    const aqiPts = [], aqiCol = [], cvPts = [], cvCol = [], covPts = [], covCol = [], eco2Pts = [], eco2Col = [];
     (j.feeds||[]).forEach(f=>{
       const aqi = Number(f.field1), t = new Date(f.created_at).getTime();
       if(!(aqi>=1 && aqi<=5) || isNaN(t)) return;
       const color = COLORES[aqi];
       aqiPts.push({x:t,y:aqi}); aqiCol.push(color);
       if(f.field2!==null && f.field3!==null && f.field2!=="" && f.field3!==""){
-        cvPts.push({x:Number(f.field2),y:Number(f.field3),aqi:aqi,t:t}); cvCol.push(color);
+        const cov = Number(f.field2), eco2 = Number(f.field3);
+        cvPts.push({x:cov,y:eco2,aqi:aqi,t:t}); cvCol.push(color);
+        covPts.push({x:t,y:cov}); covCol.push(color);
+        eco2Pts.push({x:t,y:eco2}); eco2Col.push(color);
       }
     });
 
@@ -134,6 +173,12 @@ async function cargar(){
     g1.data.datasets[0].data = cvPts;
     g1.data.datasets[0].pointBackgroundColor = cvCol;
     g1.update();
+    g3.data.datasets[0].data = covPts;
+    g3.data.datasets[0].pointBackgroundColor = covCol;
+    g3.update();
+    g4.data.datasets[0].data = eco2Pts;
+    g4.data.datasets[0].pointBackgroundColor = eco2Col;
+    g4.update();
     $("aviso").hidden = cvPts.length > 0;
 
     const ultima = j.feeds && j.feeds.length ? fmtHora(new Date(j.feeds[j.feeds.length-1].created_at)) : "sin datos";
