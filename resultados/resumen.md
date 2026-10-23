@@ -1,9 +1,9 @@
 # Resumen del análisis - Safe Air Pedregal
 
-Generado: 2026-10-23 11:04 (hora del servidor)
+Generado: 2026-10-23 16:31 (hora del servidor)
 Canal ThingSpeak: 3399651
-Lecturas con AQI: 8000  |  Lecturas con COV y eCO2: 2099
-Periodo: 2026-10-18 00:52 a 2026-10-22 12:20
+Lecturas con AQI: 8000  |  Lecturas con COV y eCO2: 2102
+Periodo: 2026-10-18 01:01 a 2026-10-23 11:31
 
 ## Distribución del AQI
 
@@ -19,8 +19,8 @@ Periodo: 2026-10-18 00:52 a 2026-10-22 12:20
 
 - Correlación de Pearson (r): 0.852
 - Correlación de Spearman: 1.000
-- Regresión lineal: eCO2 = 0.388 x COV + 623.1
+- Regresión lineal: eCO2 = 0.388 x COV + 623.2
 - R²: 0.726
 - Interpretación: correlación fuerte positiva entre COV y eCO2.
-- COV: media 371.6 ppb, rango 0 a 2483
-- eCO2: media 767.3 ppm, rango 400 a 1306
+- COV: media 372.0 ppb, rango 0 a 2483
+- eCO2: media 767.6 ppm, rango 400 a 1306
