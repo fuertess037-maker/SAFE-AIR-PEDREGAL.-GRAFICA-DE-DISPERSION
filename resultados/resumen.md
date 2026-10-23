@@ -1,6 +1,6 @@
 # Resumen del análisis - Safe Air Pedregal
 
-Generado: 2026-10-22 21:13 (hora del servidor)
+Generado: 2026-10-23 03:31 (hora del servidor)
 Canal ThingSpeak: 3399651
 Lecturas con AQI: 8000  |  Lecturas con COV y eCO2: 2099
 Periodo: 2026-10-18 00:52 a 2026-10-22 12:20
